@@ -5,7 +5,14 @@ description = "WX2 - Fast Audio Transcription and Diarization System with Whispe
 readme = "README.md"
 requires-python = "==3.10"
 dependencies = [
-    # Add other default dependencies here
+    "requests",
+    "numpy",
+    "torch",  # gestionado por grupos cuda/cpu
+    "torchaudio",
+    "transformers",
+    "pyannote.audio",
+    "rich",
+    "ffmpeg-python",
 ]
 
 [dependency-groups]
