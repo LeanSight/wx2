@@ -1,4 +1,4 @@
-# WX2 - Advanced Audio Transcription and Diarization System
+# WX2 - Fast Audio Transcription and Diarization System with Whisper and Pyannote
 
 WX2 is a functional Python tool for transcribing audio and video, with speaker identification (diarization) capabilities. It uses state-of-the-art models like Whisper for transcription and PyAnnote for diarization. This project is inspired by [Insanely Fast Whisper](https://github.com/Vaibhavs10/insanely-fast-whisper).
 
