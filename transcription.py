@@ -1,5 +1,5 @@
 """
-Funciones para la transcripción de audio.
+Functions for audio transcription.
 """
 from typing import Dict, Any, cast
 
@@ -51,7 +51,7 @@ def _detect_language_if_needed(config: TranscriptionConfig, pipe: Any, audio_dat
     if config.language is not None:
         return
 
-    logger.info("Idioma no especificado. Detectando automáticamente...")
+    logger.info("Language not specified. Detecting automatically...")
     snippet = {
         "raw": audio_data["numpy_array"][:int(30 * audio_data["sampling_rate"])],
         "sampling_rate": audio_data["sampling_rate"]
@@ -61,10 +61,10 @@ def _detect_language_if_needed(config: TranscriptionConfig, pipe: Any, audio_dat
     language_code = result.get("language")
 
     if not language_code:
-        raise ValueError("No se pudo detectar el idioma del audio.")
+        raise ValueError("Could not detect the audio language.")
 
     config.language = language_code
-    logger.info(f"Idioma detectado: '{language_code}'")
+    logger.info(f"Detected language: '{language_code}'")
 
 
 @log_time
@@ -76,25 +76,24 @@ def transcribe_audio(
     dynamic_imports: Dict[str, Any] = {}
 ) -> TranscriptOutput:
     """
-    Transcribe el audio usando el modelo Whisper.
-    Si no se especificó el idioma, lo detecta automáticamente.
+    Transcribe the audio using the Whisper model.
+    If language is not specified, it will be automatically detected.
     """
     torch = dynamic_imports["torch"]
     transformers = dynamic_imports["transformers"]
 
-    logger.info(f"Iniciando transcripción con modelo {config.model_name}")
+    logger.info(f"Starting transcription with model {config.model_name}")
     if "source_info" in audio_data and audio_data["source_info"].get("path"):
-        logger.info(f"Fuente: {format_path(audio_data['source_info']['path'])}")
+        logger.info(f"Source: {format_path(audio_data['source_info']['path'])}")
 
-    # 1. Preparar pipeline
+    # 1. Prepare pipeline
     pipe = _build_whisper_pipeline(config, torch, transformers)
 
-    # 2. Detectar idioma si es necesario
+    # 2. Detect language if needed
     _detect_language_if_needed(config, pipe, audio_data)
 
-    # 3. Ejecutar transcripción completa
-    outputs = with_progress_bar("Transcribiendo...", lambda: _run_transcription(config, pipe, audio_data))
-    logger.info(f"Transcripción completa: {len(outputs.get('chunks', []))} fragmentos")
+    # 3. Run full transcription
+    outputs = with_progress_bar("Transcribing...", lambda: _run_transcription(config, pipe, audio_data))
+    logger.info(f"Transcription complete: {len(outputs.get('chunks', []))} fragments")
 
     return cast(TranscriptOutput, outputs)
-

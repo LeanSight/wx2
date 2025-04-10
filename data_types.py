@@ -1,59 +1,59 @@
 """
-Definiciones de tipos de datos para el sistema de transcripción.
+Data type definitions for the transcription system.
 """
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypedDict, Dict, List, Any, Union, Optional, Tuple, Literal
 from pathlib import Path
 
-# Tipos específicos para datos
+# Specific types for data
 TaskType = Literal["transcribe", "translate"]
 
 class AudioSourceInfo(TypedDict):
-    """Información sobre el origen del audio procesado."""
-    path: Optional[str]  # Ruta o URL original
-    type: str  # "file", "url", "bytes" o "dict"
-    file_name: Optional[str]  # Nombre del archivo si existe
-    format: str  # Formato de archivo (mp3, wav, mp4, etc.)
-    is_video: bool  # Si el origen es un archivo de video
-    duration_seconds: Optional[float]  # Duración en segundos
-    content_size: Optional[int]  # Tamaño en bytes si está disponible
+    """Information about the source of processed audio."""
+    path: Optional[str]  # Original path or URL
+    type: str  # "file", "url", "bytes" or "dict"
+    file_name: Optional[str]  # File name if available
+    format: str  # File format (mp3, wav, mp4, etc.)
+    is_video: bool  # Whether the source is a video file
+    duration_seconds: Optional[float]  # Duration in seconds
+    content_size: Optional[int]  # Size in bytes if available
 
 class AudioData(TypedDict):
-    """Datos de audio procesados y listos para transcripción/diarización."""
-    numpy_array: "np.ndarray"  # Array de audio mono de 16kHz
-    torch_tensor: "torch.Tensor"  # Tensor para diarización
-    sampling_rate: int  # Siempre 16000Hz
-    source_info: AudioSourceInfo  # Información del origen
+    """Processed audio data ready for transcription/diarization."""
+    numpy_array: "np.ndarray"  # Mono 16kHz audio array
+    torch_tensor: "torch.Tensor"  # Tensor for diarization
+    sampling_rate: int  # Always 16000Hz
+    source_info: AudioSourceInfo  # Source information
 
 class AudioInputDict(TypedDict):
-    """Diccionario de entrada de audio con metadatos."""
-    raw: Optional["np.ndarray"]  # Datos de audio crudos
-    array: Optional["np.ndarray"]  # Alternativa a raw
-    sampling_rate: int  # Frecuencia de muestreo
-    path: Optional[str]  # Origen del audio (si está disponible)
+    """Audio input dictionary with metadata."""
+    raw: Optional["np.ndarray"]  # Raw audio data
+    array: Optional["np.ndarray"]  # Alternative to raw
+    sampling_rate: int  # Sampling rate
+    path: Optional[str]  # Audio source (if available)
 
 class TranscriptChunk(TypedDict):
-    """Fragmento individual de transcripción con timestamp."""
+    """Individual transcription chunk with timestamp."""
     text: str
     timestamp: Tuple[Optional[float], Optional[float]]
 
 class TranscriptOutput(TypedDict):
-    """Resultado de la transcripción completa."""
-    text: str  # Texto completo
-    chunks: List[TranscriptChunk]  # Fragmentos con timestamps
+    """Complete transcription result."""
+    text: str  # Complete text
+    chunks: List[TranscriptChunk]  # Chunks with timestamps
 
 class SpeakerSegment(TypedDict):
-    """Segmento con información de hablante."""
-    segment: Dict[str, float]  # start, end en segundos
-    speaker: str  # Identificador del hablante (SPEAKER_00, etc.)
+    """Segment with speaker information."""
+    segment: Dict[str, float]  # start, end in seconds
+    speaker: str  # Speaker identifier (SPEAKER_00, etc.)
 
 class DiarizedChunk(TranscriptChunk):
-    """Fragmento de transcripción con información de hablante."""
-    speaker: str  # Identificador del hablante
+    """Transcription chunk with speaker information."""
+    speaker: str  # Speaker identifier
 
 class ProcessingMetadata(TypedDict):
-    """Metadatos sobre el procesamiento realizado."""
+    """Metadata about the processing performed."""
     transcription_model: str
     language: str
     device: str
@@ -62,15 +62,15 @@ class ProcessingMetadata(TypedDict):
     diarization_model: Optional[str]
 
 class FinalResult(TypedDict):
-    """Estructura final del resultado."""
-    speakers: List[DiarizedChunk]  # Transcripción con hablantes
-    chunks: List[TranscriptChunk]  # Fragmentos originales
-    text: str  # Texto completo
-    metadata: Dict[str, Any]  # Metadatos, incluye source_info y processing
+    """Final result structure."""
+    speakers: List[DiarizedChunk]  # Transcription with speakers
+    chunks: List[TranscriptChunk]  # Original chunks
+    text: str  # Complete text
+    metadata: Dict[str, Any]  # Metadata, includes source_info and processing
 
 @dataclass(frozen=True)
 class TranscriptionConfig:
-    """Configuración inmutable para el proceso de transcripción."""
+    """Immutable configuration for the transcription process."""
     file_name: Union[str, Path]
     device_id: str = "0"
     transcript_path: Union[str, Path] = "output.json"
@@ -90,10 +90,10 @@ class TranscriptionConfig:
     max_speakers: Optional[int] = None
     
     def __post_init__(self) -> None:
-        """Validar configuración después de inicialización."""
+        """Validate configuration after initialization."""
         if self.num_speakers is not None and (
             self.min_speakers is not None or self.max_speakers is not None
         ):
             raise ValueError(
-                "--num-speakers no puede usarse junto con --min-speakers o --max-speakers"
+                "--num-speakers cannot be used together with --min-speakers or --max-speakers"
             )

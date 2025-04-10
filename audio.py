@@ -1,5 +1,5 @@
 """
-Funciones para procesamiento de audio.
+Functions for audio processing.
 """
 import os
 import requests
@@ -17,17 +17,17 @@ def process_audio(
     dynamic_imports: Dict[str, Any] = {}
 ) -> AudioData:
     """
-    Procesa el audio desde varias fuentes para ASR y diarización.
-    Detecta automáticamente archivos de video y extrae el audio.
+    Processes audio from various sources for ASR and diarization.
+    Automatically detects video files and extracts audio.
     
     Args:
-        input_src: String (ruta/URL), bytes o diccionario con datos de audio.
-        dynamic_imports: Módulos importados dinámicamente.
+        input_src: String (path/URL), bytes or dictionary with audio data.
+        dynamic_imports: Dynamically imported modules.
         
     Returns:
-        AudioData: Diccionario con numpy_array, torch_tensor y sampling_rate.
+        AudioData: Dictionary with numpy_array, torch_tensor and sampling_rate.
     """
-    # Inicializar información de origen
+    # Initialize source information
     source_info: AudioSourceInfo = {
         "path": None,
         "type": "unknown",
@@ -38,7 +38,7 @@ def process_audio(
         "content_size": None
     }
     
-    # Extraer módulos
+    # Extract modules
     np = dynamic_imports["numpy"]
     torch = dynamic_imports["torch"]
     audio_utils = dynamic_imports["audio_utils"]
@@ -46,7 +46,7 @@ def process_audio(
     os = dynamic_imports["os"]
     subprocess = dynamic_imports["subprocess"]
 
-    # Procesamiento según tipo de entrada
+    # Processing according to input type
     if isinstance(input_src, (str, Path)):
         input_str: str = str(input_src)
         source_info["path"] = input_str
@@ -58,73 +58,73 @@ def process_audio(
         
         if input_str.startswith(("http://", "https://")):
             source_info["type"] = "url"
-            logger.info(f"Procesando audio desde URL: {format_path(input_str)} ({'' if source_info['is_video'] else 'audio, '}{source_info['format']})")
-            logger.info("Descargando audio desde URL")
+            logger.info(f"Processing audio from URL: {format_path(input_str)} ({'' if source_info['is_video'] else 'audio, '}{source_info['format']})")
+            logger.info("Downloading audio from URL")
             
             response = requests.get(input_str, stream=True)
             content_size = int(response.headers.get('content-length', 0))
             source_info["content_size"] = content_size
             
             input_src = response.content
-            logger.info(f"Descarga completada: {content_size / (1024*1024):.1f} MB recibidos")
+            logger.info(f"Download completed: {content_size / (1024*1024):.1f} MB received")
         else:
             source_info["type"] = "file"
-            logger.info(f"Procesando audio desde archivo: {format_path(input_str)} ({source_info['format']})")
-            logger.info("Cargando archivo desde local")
+            logger.info(f"Processing audio from file: {format_path(input_str)} ({source_info['format']})")
+            logger.info("Loading file from local storage")
             
             if source_info["is_video"]:
-                logger.info(f"Detectado archivo de video: {file_ext}")
+                logger.info(f"Detected video file: {file_ext}")
                 temp_audio = f"{os.path.splitext(input_str)[0]}_temp.wav"
-                logger.info(f"Extrayendo audio a archivo temporal: {format_path(temp_audio)}")
+                logger.info(f"Extracting audio to temporary file: {format_path(temp_audio)}")
                 try:
                     subprocess.run(
                         ["ffmpeg", "-y", "-i", input_str, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", temp_audio],
                         check=True,
                         capture_output=True
                     )
-                    # Verificar que el archivo se generó correctamente
+                    # Check that the file was generated correctly
                     if not os.path.exists(temp_audio) or os.path.getsize(temp_audio) == 0:
-                        raise ValueError("El archivo temporal de audio no se generó correctamente o está vacío")
+                        raise ValueError("The temporary audio file was not generated correctly or is empty")
                     
-                    logger.info(f"Audio extraído correctamente, tamaño: {os.path.getsize(temp_audio)/1024:.1f} KB")
+                    logger.info(f"Audio extracted successfully, size: {os.path.getsize(temp_audio)/1024:.1f} KB")
                     with open(temp_audio, "rb") as f:
                         input_src = f.read()
-                        logger.info(f"Bytes leídos del archivo temporal: {len(input_src)} bytes")
+                        logger.info(f"Bytes read from temporary file: {len(input_src)} bytes")
                     os.remove(temp_audio)
                 except subprocess.CalledProcessError as e:
-                    logger.error(f"Error al extraer audio con FFmpeg: {e}")
-                    logger.error(f"Salida de error: {e.stderr.decode() if e.stderr else 'No stderr'}")
-                    raise ValueError(f"No se pudo extraer audio del archivo de video: {input_str}") from e
+                    logger.error(f"Error extracting audio with FFmpeg: {e}")
+                    logger.error(f"Error output: {e.stderr.decode() if e.stderr else 'No stderr'}")
+                    raise ValueError(f"Could not extract audio from video file: {input_str}") from e
                 except FileNotFoundError:
-                    logger.error("FFmpeg no está instalado o no se encuentra en el PATH")
-                    raise ValueError("FFmpeg es necesario para procesar archivos de video")
+                    logger.error("FFmpeg is not installed or not found in PATH")
+                    raise ValueError("FFmpeg is necessary to process video files")
             else:
                 with open(input_str, "rb") as f:
                     input_src = f.read()
 
-    # Procesamiento de datos binarios con manejo robusto de errores
+    # Processing binary data with robust error handling
     if isinstance(input_src, bytes):
         source_info["type"] = "bytes"
-        logger.info(f"Procesando audio desde datos binarios: {len(input_src) / 1024:.1f} KB")
+        logger.info(f"Processing audio from binary data: {len(input_src) / 1024:.1f} KB")
         source_info["content_size"] = len(input_src)
-        logger.info("Decodificando audio con FFmpeg")
+        logger.info("Decoding audio with FFmpeg")
         
         try:
-            # Añadir logging detallado para diagnóstico
-            logger.info(f"Tamaño de los bytes antes de FFmpeg: {len(input_src)} bytes")
+            # Add detailed logging for diagnostics
+            logger.info(f"Bytes size before FFmpeg: {len(input_src)} bytes")
             decoded_audio = audio_utils.ffmpeg_read(input_src, 16000)
             
-            # Verificar explícitamente que se decodificó correctamente
+            # Explicitly verify it was decoded correctly
             if not isinstance(decoded_audio, np.ndarray):
-                logger.error(f"FFmpeg no devolvió un array numpy, sino {type(decoded_audio).__name__}")
-                raise ValueError(f"Decodificación incorrecta: se esperaba numpy.ndarray, se obtuvo {type(decoded_audio).__name__}")
+                logger.error(f"FFmpeg did not return a numpy array, but {type(decoded_audio).__name__}")
+                raise ValueError(f"Incorrect decoding: expected numpy.ndarray, got {type(decoded_audio).__name__}")
                 
             input_src = decoded_audio
-            logger.info(f"Audio decodificado correctamente: {input_src.shape[0]} muestras")
+            logger.info(f"Audio decoded successfully: {input_src.shape[0]} samples")
             
         except Exception as e:
-            logger.error(f"Error al decodificar el audio con FFmpeg: {str(e)}", exc_info=True)
-            raise ValueError("No se pudo decodificar el audio correctamente. Verifica el formato del archivo y la instalación de FFmpeg.") from e
+            logger.error(f"Error decoding audio with FFmpeg: {str(e)}", exc_info=True)
+            raise ValueError("Could not decode audio correctly. Check the file format and FFmpeg installation.") from e
 
     elif isinstance(input_src, dict):
         source_info["type"] = "dict"
@@ -132,10 +132,10 @@ def process_audio(
             source_info["path"] = input_src["path"]
             source_info["file_name"] = os.path.basename(str(input_src["path"]))
         
-        logger.info(f"Procesando audio desde diccionario: {source_info.get('path', 'datos en memoria')}")
+        logger.info(f"Processing audio from dictionary: {source_info.get('path', 'in-memory data')}")
         
         if not ("sampling_rate" in input_src and ("raw" in input_src or "array" in input_src)):
-            raise ValueError("El diccionario debe contener 'raw' o 'array' con el audio y 'sampling_rate'")
+            raise ValueError("Dictionary must contain 'raw' or 'array' with audio and 'sampling_rate'")
         
         _inputs: Any = input_src.pop("raw", None)
         if _inputs is None:
@@ -146,30 +146,30 @@ def process_audio(
         input_src = _inputs
         
         if in_sampling_rate != 16000:
-            logger.info(f"Remuestreando de {in_sampling_rate} a 16000 Hz")
+            logger.info(f"Resampling from {in_sampling_rate} to 16000 Hz")
             input_src = functional.resample(torch.from_numpy(input_src), in_sampling_rate, 16000).numpy()
 
-    # Verificación final del tipo de datos
+    # Final data type verification
     if not isinstance(input_src, np.ndarray):
-        error_msg = f"Se esperaba un array numpy, se obtuvo `{type(input_src).__name__}`"
+        error_msg = f"Expected a numpy array, got `{type(input_src).__name__}`"
         logger.error(error_msg)
         if isinstance(input_src, bytes):
-            logger.error(f"Los datos siguen siendo bytes de tamaño {len(input_src)}. La decodificación de FFmpeg falló.")
+            logger.error(f"Data is still bytes of size {len(input_src)}. FFmpeg decoding failed.")
         raise ValueError(error_msg)
         
     if len(input_src.shape) != 1:
-        raise ValueError("Se esperaba audio de un solo canal")
+        raise ValueError("Expected single-channel audio")
 
-    # Preparar tensor para la diarización
+    # Prepare tensor for diarization
     input_src = input_src.copy() 
     torch_tensor = torch.from_numpy(input_src).float().unsqueeze(0)
     
-    # Calcular duración
+    # Calculate duration
     duration_seconds = len(input_src) / 16000
     source_info["duration_seconds"] = duration_seconds
     duration_str = f"{int(duration_seconds//60)}m {int(duration_seconds%60)}s"
     
-    logger.info(f"Audio procesado: {input_src.shape[0]} muestras, SR=16000Hz (duración: {duration_str})")
+    logger.info(f"Audio processed: {input_src.shape[0]} samples, SR=16000Hz (duration: {duration_str})")
     
     return {
         "numpy_array": input_src,

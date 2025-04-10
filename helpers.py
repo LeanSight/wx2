@@ -1,5 +1,5 @@
 """
-Utilidades y decoradores para el sistema de transcripción.
+Utilities and decorators for the transcription system.
 """
 import time
 import logging
@@ -10,10 +10,10 @@ from rich.logging import RichHandler
 from rich.console import Console
 from rich.progress import Progress, TextColumn, BarColumn, TimeElapsedColumn
 
-# Configurar consola
+# Configure console
 console = Console()
 
-# Configuración de logging con Rich
+# Logging configuration with Rich
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
@@ -25,32 +25,32 @@ logging.basicConfig(
             show_time=True,
             show_path=False,
             enable_link_path=False,
-            markup=True  # Habilitar interpretación de markup Rich
+            markup=True  # Enable Rich markup interpretation
         )
     ]
 )
 logger = logging.getLogger("transcriber")
 
-# Utilidad para importación dinámica
+# Utility for dynamic import
 def import_module(module_name: str) -> Any:
-    """Importa un módulo dinámicamente y registra en el log."""
-    logger.debug(f"Importando: {module_name}")
+    """Dynamically imports a module and logs it."""
+    logger.debug(f"Importing: {module_name}")
     try:
         return importlib.import_module(module_name)
     except ImportError as e:
-        logger.error(f"Error importando {module_name}: {e}")
+        logger.error(f"Error importing {module_name}: {e}")
         raise
 
-# Decorador para importar módulos justo antes de ejecutar la función
+# Decorator to import modules just before executing the function
 def with_imports(*module_names: str) -> Callable:
     """
-    Decorador que importa módulos justo antes de ejecutar la función.
+    Decorator that imports modules just before executing the function.
     
     Args:
-        *module_names: Nombres de los módulos a importar
+        *module_names: Names of modules to import
     
     Returns:
-        Función decorada que tendrá los módulos importados disponibles
+        Decorated function that will have the imported modules available
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
@@ -64,29 +64,29 @@ def with_imports(*module_names: str) -> Callable:
         return wrapper
     return decorator
 
-# Decorador para medir tiempo de ejecución
+# Decorator to measure execution time
 def log_time(func: Callable) -> Callable:
-    """Decorador que mide el tiempo de ejecución de una función."""
+    """Decorator that measures the execution time of a function."""
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         start_time: float = time.time()
         result: Any = func(*args, **kwargs)
         end_time: float = time.time()
-        logger.info(f"{func.__name__} - Tiempo: {end_time - start_time:.2f}s")
+        logger.info(f"{func.__name__} - Time: {end_time - start_time:.2f}s")
         return result
     return wrapper
 
-# Función auxiliar para mostrar barra de progreso
+# Helper function to display progress bar
 def with_progress_bar(description: str, func: Callable) -> Any:
     """
-    Ejecuta una función mostrando una barra de progreso.
+    Executes a function while displaying a progress bar.
     
     Args:
-        description: Descripción para la barra de progreso
-        func: Función a ejecutar
+        description: Description for the progress bar
+        func: Function to execute
         
     Returns:
-        Resultado de la función
+        Result of the function
     """
     with Progress(
         TextColumn("🤗 [progress.description]{task.description}"),
@@ -96,7 +96,7 @@ def with_progress_bar(description: str, func: Callable) -> Any:
         task_id = progress.add_task(f"[yellow]{description}", total=None)
         return func()
 
-# Función para formatear rutas de archivos de manera consistente
+# Function to format file paths consistently
 def format_path(path):
-    """Aplica formato consistente a las rutas de archivos en logs."""
+    """Applies consistent formatting to file paths in logs."""
     return f"[cyan]{path}[/]"

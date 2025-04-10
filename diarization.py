@@ -1,5 +1,5 @@
 """
-Funciones para la diarización (identificación de hablantes) de audio.
+Functions for diarization (speaker identification) of audio.
 """
 import sys
 from typing import Dict, Any, List, Tuple, cast
@@ -17,14 +17,14 @@ def load_diarization_pipeline(
     dynamic_imports: Dict[str, Any] = {}
 ) -> Any:
     """
-    Carga el pipeline de diarización.
+    Loads the diarization pipeline.
     
     Args:
-        config: Configuración de transcripción/diarización
-        dynamic_imports: Módulos importados dinámicamente
+        config: Transcription/diarization configuration
+        dynamic_imports: Dynamically imported modules
         
     Returns:
-        Pipeline: Pipeline de diarización cargado
+        Pipeline: Loaded diarization pipeline
     """
     torch = dynamic_imports["torch"]
     pyannote_audio = dynamic_imports["audio"]
@@ -43,15 +43,15 @@ def load_diarization_pipeline(
 
 def process_diarization_segments(diarization: Any) -> List[Dict[str, Any]]:
     """
-    Procesa los segmentos de diarización y los combina por hablante.
+    Processes diarization segments and combines them by speaker.
     
     Args:
-        diarization: Resultado de la diarización
+        diarization: Diarization result
         
     Returns:
-        List[Dict[str, Any]]: Segmentos combinados por hablante
+        List[Dict[str, Any]]: Combined segments by speaker
     """
-    # Extraer segmentos
+    # Extract segments
     segments: List[Dict[str, Any]] = []
     for segment, track, label in diarization.itertracks(yield_label=True):
         segments.append({
@@ -60,7 +60,7 @@ def process_diarization_segments(diarization: Any) -> List[Dict[str, Any]]:
             "label": label,
         })
     
-    # Combinar segmentos consecutivos del mismo hablante
+    # Combine consecutive segments from the same speaker
     new_segments: List[Dict[str, Any]] = []
     if segments:
         prev_segment: Dict[str, Any] = segments[0]
@@ -68,7 +68,7 @@ def process_diarization_segments(diarization: Any) -> List[Dict[str, Any]]:
         for i in range(1, len(segments)):
             cur_segment: Dict[str, Any] = segments[i]
             
-            # Si cambió el hablante, agregar el segmento combinado
+            # If speaker changed, add the combined segment
             if cur_segment["label"] != prev_segment["label"]:
                 new_segments.append({
                     "segment": {
@@ -79,7 +79,7 @@ def process_diarization_segments(diarization: Any) -> List[Dict[str, Any]]:
                 })
                 prev_segment = segments[i]
         
-        # Agregar el último segmento
+        # Add the last segment
         new_segments.append({
             "segment": {
                 "start": prev_segment["segment"]["start"],
@@ -98,15 +98,15 @@ def align_segments_with_transcript(
     dynamic_imports: Dict[str, Any] = {}
 ) -> List[DiarizedChunk]:
     """
-    Alinea los segmentos de diarización con la transcripción.
+    Aligns diarization segments with the transcript.
     
     Args:
-        new_segments: Segmentos de diarización
-        transcript_chunks: Fragmentos de transcripción
-        dynamic_imports: Módulos importados dinámicamente
+        new_segments: Diarization segments
+        transcript_chunks: Transcript fragments
+        dynamic_imports: Dynamically imported modules
         
     Returns:
-        List[DiarizedChunk]: Fragmentos con información de hablante
+        List[DiarizedChunk]: Fragments with speaker information
     """
     np = dynamic_imports["numpy"]
     segmented_preds: List[DiarizedChunk] = []
@@ -114,19 +114,19 @@ def align_segments_with_transcript(
     if not new_segments or not transcript_chunks:
         return segmented_preds
     
-    # Obtener timestamps finales de cada fragmento transcrito
+    # Get final timestamps of each transcribed chunk
     end_timestamps = np.array([
         chunk["timestamp"][-1] if chunk["timestamp"][-1] is not None 
         else sys.float_info.max for chunk in transcript_chunks
     ])
     
-    # Alinear los timestamps de diarización y ASR
+    # Align diarization and ASR timestamps
     for segment in new_segments:
         end_time: float = segment["segment"]["end"]
-        # Encontrar el timestamp de ASR más cercano
+        # Find the closest ASR timestamp
         upto_idx: int = np.argmin(np.abs(end_timestamps - end_time))
         
-        # Agregar fragmentos con información de hablante
+        # Add chunks with speaker information
         for i in range(upto_idx + 1):
             chunk: TranscriptChunk = transcript_chunks[i]
             segmented_preds.append({
@@ -135,7 +135,7 @@ def align_segments_with_transcript(
                 "speaker": segment["speaker"]
             })
         
-        # Recortar la transcripción y timestamps para el siguiente segmento
+        # Trim the transcript and timestamps for the next segment
         transcript_chunks = transcript_chunks[upto_idx + 1:]
         end_timestamps = end_timestamps[upto_idx + 1:]
         
@@ -154,36 +154,36 @@ def diarize_audio(
     dynamic_imports: Dict[str, Any] = {}
 ) -> List[DiarizedChunk]:
     """
-    Realiza la diarización para identificar diferentes hablantes.
+    Performs diarization to identify different speakers.
     
     Args:
-        config: Configuración de transcripción/diarización
-        audio_data: Audio procesado para diarización
-        transcript: Resultados de la transcripción
-        dynamic_imports: Módulos importados dinámicamente
+        config: Transcription/diarization configuration
+        audio_data: Processed audio for diarization
+        transcript: Transcription results
+        dynamic_imports: Dynamically imported modules
         
     Returns:
-        List[DiarizedChunk]: Transcripción con información de hablantes
+        List[DiarizedChunk]: Transcription with speaker information
     """
-    # Si no hay token, omitir diarización
+    # If no token, skip diarization
     if config.hf_token == "no_token":
-        logger.info("Diarización omitida (no se proporcionó token)")
+        logger.info("Diarization skipped (no token provided)")
         return []
     
-    logger.info(f"Iniciando diarización con modelo {config.diarization_model}")
+    logger.info(f"Starting diarization with model {config.diarization_model}")
     
-    # Mostrar información de la fuente si está disponible
+    # Show source information if available
     if "source_info" in audio_data and audio_data["source_info"].get("path"):
-        logger.info(f"Fuente: {format_path(audio_data['source_info']['path'])}")
+        logger.info(f"Source: {format_path(audio_data['source_info']['path'])}")
     
     def execute_diarization() -> Tuple[List[DiarizedChunk], List[Dict[str, Any]]]:
-        # 1. Cargar pipeline
+        # 1. Load pipeline
         diarization_pipeline = load_diarization_pipeline(
             config, dynamic_imports={"torch": dynamic_imports["torch"], 
                                     "pyannote.audio": dynamic_imports["audio"]}
         )
         
-        # 2. Ejecutar diarización
+        # 2. Run diarization
         diarization = diarization_pipeline(
             {"waveform": audio_data["torch_tensor"], "sample_rate": 16000},
             num_speakers=config.num_speakers,
@@ -191,10 +191,10 @@ def diarize_audio(
             max_speakers=config.max_speakers,
         )
         
-        # 3. Procesar segmentos
+        # 3. Process segments
         new_segments: List[Dict[str, Any]] = process_diarization_segments(diarization)
         
-        # 4. Alinear con transcripción
+        # 4. Align with transcript
         transcript_chunks: List[TranscriptChunk] = transcript["chunks"].copy()
         segmented_preds: List[DiarizedChunk] = align_segments_with_transcript(
             new_segments, transcript_chunks, 
@@ -203,9 +203,9 @@ def diarize_audio(
         
         return segmented_preds, new_segments
     
-    segmented_preds, new_segments = with_progress_bar("Segmentando hablantes...", execute_diarization)
+    segmented_preds, new_segments = with_progress_bar("Segmenting speakers...", execute_diarization)
     
     num_speakers: int = len(set(segment["speaker"] for segment in new_segments)) if new_segments else 0
-    logger.info(f"Diarización completa: {num_speakers} hablantes detectados")
+    logger.info(f"Diarization complete: {num_speakers} speakers detected")
     
     return segmented_preds

@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-wx2.spec — Empaqueta wx2.py en modo onedir
-Incluye todas las dependencias dinámicas necesarias
+wx2.spec — Packages wx2.py in onedir mode
+Includes all necessary dynamic dependencies
 """
 
 import os
@@ -11,17 +11,17 @@ from PyInstaller.utils.hooks import (
     collect_data_files,
 )
 
-# Módulos ocultos que se usan dinámicamente
+# Hidden modules that are used dynamically
 hidden_imports = (
     collect_submodules("torch") +
     collect_submodules("torchaudio") +
     collect_submodules("pyannote.audio") +
     collect_submodules("transformers") +
-    collect_submodules("rich") +  # ← Logger colorido
-    ["_socket"]                   # ← Evita el error de runtime por pkg_resources
+    collect_submodules("rich") +  # ← Colorful logger
+    ["_socket"]                   # ← Avoids runtime error from pkg_resources
 )
 
-# Archivos de datos necesarios (incluso .py de los módulos)
+# Necessary data files (including .py files from modules)
 datas = (
     collect_data_files("torch", include_py_files=True) +
     collect_data_files("torchaudio", include_py_files=True) +
@@ -32,7 +32,7 @@ datas = (
 
 block_cipher = None
 
-# Análisis del script principal
+# Main script analysis
 a = Analysis(
     ["wx2.py"],
     pathex=[],
@@ -47,24 +47,24 @@ a = Analysis(
     cipher=block_cipher,
 )
 
-# Empaquetado de scripts Python
+# Packaging Python scripts
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-# Ejecutable principal
+# Main executable
 exe = EXE(
     pyz,
     a.scripts,
     [],
     exclude_binaries=False,
-    name="wx2_temp",         # Nombre temporal
+    name="wx2_temp",         # Temporary name
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,            # True para ver logs en consola
+    console=True,            # True to see logs in console
 )
 
-# Colección de archivos en dist/wx2
+# Collection of files in dist/wx2
 coll = COLLECT(
     exe,
     a.binaries,
@@ -76,7 +76,7 @@ coll = COLLECT(
     name="wx2"
 )
 
-# Renombrar el ejecutable final
+# Rename the final executable
 final_dir = os.path.join("dist", "wx2")
 old_exe = os.path.join(final_dir, "wx2_temp.exe")
 new_exe = os.path.join(final_dir, "wx2.exe")

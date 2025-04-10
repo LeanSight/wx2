@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Sistema de transcripción y diarización de audio con enfoque funcional.
-Usa tipado estático específico y decoradores para importaciones dinámicas.
+Audio transcription and diarization system with functional approach.
+Uses specific static typing and decorators for dynamic imports.
 """
 from __future__ import annotations
 import os
@@ -15,7 +15,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any, List, Union, cast
 
-# Configuración del entorno
+# Environment configuration
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore", module="pyannote.audio.models.blocks.pooling")
 # Filter SpeechBrain logs (they use the logging module)
 logging.getLogger("speechbrain.utils.quirks").setLevel(logging.WARNING)
 
-# Importaciones locales
+# Local imports
 from data_types import (
     TranscriptionConfig, TaskType, FinalResult, 
     TranscriptOutput, DiarizedChunk, ProcessingMetadata
@@ -41,50 +41,50 @@ from formatters import OutputFormat, convert_output, output_format_type
 @log_time
 def parse_arguments() -> TranscriptionConfig:
     """
-    Parsea los argumentos de línea de comandos y devuelve configuración tipada.
+    Parse command line arguments and return typed configuration.
     
     Returns:
-        TranscriptionConfig: Configuración inmutable con valores validados
+        TranscriptionConfig: Immutable configuration with validated values
     """
     parser = argparse.ArgumentParser(
-        description="Sistema de transcripción y diarización de audio con enfoque funcional.",
+        description="Audio transcription and diarization system with functional approach.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Ejemplos de uso:
-  # Transcripción básica de un archivo local
-  transcribe.py archivo.mp3
+Usage examples:
+  # Basic transcription of a local file
+  transcribe.py file.mp3
 
-  # Transcripción con formato SRT
+  # Transcription with SRT format
   transcribe.py video.mp4 -f srt
 
-  # Transcripción con diarización y nombres de hablantes
-  transcribe.py reunion.wav --diarize --token=hf_xxx --speaker-names="Juan,María,Pedro"
+  # Transcription with diarization and speaker names
+  transcribe.py meeting.wav --diarize --token=hf_xxx --speaker-names="John,Mary,Peter"
 
-  # Transcripción en inglés con atención optimizada
-  transcribe.py entrevista.mp3 -l en --attn-type flash
+  # Transcription in English with optimized attention
+  transcribe.py interview.mp3 -l en --attn-type flash
         """
     )
     
-    # Crear grupos de argumentos para mejor organización
-    basic_group = parser.add_argument_group('opciones básicas')
-    transc_group = parser.add_argument_group('opciones de transcripción')
-    perf_group = parser.add_argument_group('opciones de rendimiento')
-    diar_group = parser.add_argument_group('opciones de diarización')
+    # Create argument groups for better organization
+    basic_group = parser.add_argument_group('basic options')
+    transc_group = parser.add_argument_group('transcription options')
+    perf_group = parser.add_argument_group('performance options')
+    diar_group = parser.add_argument_group('diarization options')
     
-    # Argumento posicional para archivo de entrada
+    # Positional argument for input file
     parser.add_argument(
         "file_name", 
         type=str, 
-        help="Ruta o URL al archivo de audio/video a procesar"
+        help="Path or URL to the audio/video file to process"
     )
     
-    # Opciones básicas
+    # Basic options
     basic_group.add_argument(
         "-o", "--output",
         dest="transcript_path",
         type=str,
-        default=None,  # Cambiado de "output.json" a None para manejar dinámicamente
-        help="Ruta para guardar el resultado (predeterminado: [nombre_input]-transcribe.[formato])"
+        default=None,  # Changed from "output.json" to None to handle dynamically
+        help="Path to save the result (default: [input_name]-transcribe.[format])"
     )
     
     basic_group.add_argument(
@@ -93,16 +93,16 @@ Ejemplos de uso:
         type=str,
         choices=["json", "srt", "vtt", "txt"],
         default="json",
-        help="Formato del archivo de salida (predeterminado: json)"
+        help="Output file format (default: json)"
     )
     
-    # Opciones de transcripción
+    # Transcription options
     transc_group.add_argument(
         "-m", "--model",
         dest="model_name",
         type=str,
         default="openai/whisper-large-v3",
-        help="Modelo de transcripción a utilizar (predeterminado: openai/whisper-large-v3)"
+        help="Transcription model to use (default: openai/whisper-large-v3)"
     )
     
     transc_group.add_argument(
@@ -110,51 +110,51 @@ Ejemplos de uso:
         dest="language",
         type=str,
         default=None,
-        help="Idioma del audio (código ISO, p.ej. 'es', 'en', 'fr') (predeterminado: es)"
+        help="Audio language (ISO code, e.g. 'es', 'en', 'fr') (default: es)"
     )
     
     transc_group.add_argument(
         "-t", "--task",
         choices=["transcribe", "translate"],
         default="transcribe",
-        help="Tarea a realizar: transcribir o traducir a inglés (predeterminado: transcribe)"
+        help="Task to perform: transcribe or translate to English (default: transcribe)"
     )
     
     transc_group.add_argument(
         "--chunk-length",
         type=int,
         default=10,
-        help="Duración en segundos de cada fragmento de audio (predeterminado: 30)"
+        help="Duration in seconds of each audio chunk (default: 30)"
     )
     
-    # Opciones de rendimiento
+    # Performance options
     perf_group.add_argument(
         "-d", "--device",
         dest="device_id",
         type=str,
         default="0",
-        help="ID del dispositivo GPU (0, 1, etc.) o 'cpu' o 'mps' (predeterminado: 0)"
+        help="GPU device ID (0, 1, etc.) or 'cpu' or 'mps' (default: 0)"
     )
     
     perf_group.add_argument(
         "-b", "--batch-size",
         type=int,
         default=8,
-        help="Tamaño de lote para procesamiento por GPU (predeterminado: 8)"
+        help="Batch size for GPU processing (default: 8)"
     )
     
     perf_group.add_argument(
         "--attn-type",
         choices=["sdpa", "eager", "flash"],
         default="sdpa",
-        help="Tipo de implementación de atención (predeterminado: sdpa)"
+        help="Attention implementation type (default: sdpa)"
     )
     
-    # Opciones de diarización
+    # Diarization options
     diar_group.add_argument(
         "--diarize",
         action="store_true",
-        help="Activar identificación de hablantes (requiere --token)"
+        help="Enable speaker identification (requires --token)"
     )
     
     diar_group.add_argument(
@@ -162,7 +162,7 @@ Ejemplos de uso:
         dest="diarization_model",
         type=str,
         default="pyannote/speaker-diarization-3.1",
-        help="Modelo de diarización a utilizar (predeterminado: pyannote/speaker-diarization-3.1)"
+        help="Diarization model to use (default: pyannote/speaker-diarization-3.1)"
     )
     
     diar_group.add_argument(
@@ -170,76 +170,76 @@ Ejemplos de uso:
         dest="hf_token",
         type=str,
         default="no_token",
-        help="Token de HuggingFace para modelos de diarización"
+        help="HuggingFace token for diarization models"
     )
     
-    # Grupo mutuamente excluyente para opciones de número de hablantes
+    # Mutually exclusive group for speaker number options
     speakers_group = diar_group.add_mutually_exclusive_group()
     
     speakers_group.add_argument(
         "--num-speakers",
         type=int,
-        help="Número exacto de hablantes en el audio"
+        help="Exact number of speakers in the audio"
     )
     
     speakers_group.add_argument(
         "--min-speakers",
         type=int,
-        help="Número mínimo de hablantes a detectar"
+        help="Minimum number of speakers to detect"
     )
     
     diar_group.add_argument(
         "--max-speakers",
         type=int,
-        help="Número máximo de hablantes a detectar"
+        help="Maximum number of speakers to detect"
     )
     
     diar_group.add_argument(
         "--speaker-names",
         type=str,
-        help="Lista de nombres separados por comas para reemplazar etiquetas de hablantes (ej: \"Juan,María,Pedro\")"
+        help="Comma-separated list of names to replace speaker labels (e.g.: \"John,Mary,Peter\")"
     )
     
     args = parser.parse_args()
     
-    # Validaciones adicionales
+    # Additional validations
     if args.max_speakers is not None and args.min_speakers is None:
-        parser.error("--max-speakers requiere --min-speakers")
+        parser.error("--max-speakers requires --min-speakers")
     
     if args.diarize and args.hf_token == "no_token":
-        parser.error("La opción --diarize requiere un token de HuggingFace (--token)")
+        parser.error("The --diarize option requires a HuggingFace token (--token)")
     
-    # NUEVO: Calcular la ruta de salida predeterminada si no se especificó
+    # NEW: Calculate default output path if not specified
     if args.transcript_path is None:
-        # Obtener la ruta completa del archivo de entrada
+        # Get the full path of the input file
         input_path = Path(args.file_name)
         
-        # Si es una URL, usar solo el nombre del archivo
+        # If it's a URL, use only the filename
         if args.file_name.startswith(("http://", "https://")):
             import urllib.parse
             file_name = urllib.parse.urlparse(args.file_name).path.split("/")[-1]
             input_path = Path(file_name)
         
-        # Obtener el directorio y el nombre base del archivo de entrada
+        # Get the directory and base name of the input file
         input_dir = input_path.parent
         input_stem = input_path.stem
         
-        # Generar el nombre del archivo de salida
+        # Generate the output filename
         output_name = f"{input_stem}-transcribe.{args.output_format}"
         
-        # Combinar con el directorio para obtener la ruta completa
+        # Combine with the directory for the full path
         args.transcript_path = str(input_dir / output_name)
-        logger.info(f"Ruta de salida predeterminada: {format_path(args.transcript_path)}")
+        logger.info(f"Default output path: {format_path(args.transcript_path)}")
     
-    # Ajustar la extensión del archivo de salida según el formato
+    # Adjust the output file extension according to the format
     if args.output_format != "json":
         output_path = Path(args.transcript_path)
-        # Si la extensión no coincide con el formato, cambiarla
+        # If the extension doesn't match the format, change it
         if output_path.suffix.lower() != f".{args.output_format}":
             stem = output_path.stem
             args.transcript_path = str(output_path.parent / f"{stem}.{args.output_format}")
     
-    # Crear configuración tipada y validada
+    # Create typed and validated configuration
     return TranscriptionConfig(
         file_name=args.file_name,
         device_id=args.device_id,
@@ -268,21 +268,21 @@ def build_and_save_result(
     audio_data: Any
 ) -> FinalResult:
     """
-    Construye y guarda el resultado final en formato JSON y lo convierte al formato solicitado.
+    Builds and saves the final result in JSON format and converts it to the requested format.
     
     Args:
-        config: Configuración de transcripción
-        transcript: Resultados de la transcripción
-        speakers_transcript: Transcripción con info de hablantes
-        audio_data: Datos de audio procesados
+        config: Transcription configuration
+        transcript: Transcription results
+        speakers_transcript: Transcription with speaker info
+        audio_data: Processed audio data
         
     Returns:
-        FinalResult: Resultado final con toda la información
+        FinalResult: Final result with all information
     """
-    # Construir resultado final
-    logger.info("Construyendo resultado final")
+    # Build final result
+    logger.info("Building final result")
     
-    # Crear metadatos de procesamiento
+    # Create processing metadata
     processing_meta: ProcessingMetadata = {
         "transcription_model": config.model_name,
         "language": config.language,
@@ -292,7 +292,7 @@ def build_and_save_result(
         "diarization_model": config.diarization_model if config.diarize else None
     }
     
-    # Incluir metadatos completos
+    # Include complete metadata
     metadata = {
         "source": audio_data.get("source_info", {}),
         "processing": processing_meta
@@ -305,43 +305,43 @@ def build_and_save_result(
         "metadata": metadata
     }
     
-    # Guardar resultado en JSON primero (siempre necesario para la conversión)
+    # Save result in JSON first (always needed for conversion)
     json_output_path = Path(str(config.transcript_path).replace(f".{config.output_format}", ".json")) \
         if config.output_format != "json" else Path(config.transcript_path)
     
-    logger.info(f"Guardando resultado JSON en: {format_path(str(json_output_path))}")
+    logger.info(f"Saving JSON result to: {format_path(str(json_output_path))}")
     
-    # Mostrar información de origen si está disponible
+    # Show source information if available
     if "source" in metadata and metadata["source"].get("path"):
-        logger.info("Información de origen incluida en metadatos:")
-        logger.info(f"- Archivo: {format_path(metadata['source']['path'])}")
+        logger.info("Source information included in metadata:")
+        logger.info(f"- File: {format_path(metadata['source']['path'])}")
         
         format_info = []
         if metadata["source"].get("is_video"):
             format_info.append("video")
         elif metadata["source"].get("type") == "url":
-            format_info.append("remoto")
+            format_info.append("remote")
         else:
             format_info.append("audio")
             
         if metadata["source"].get("format"):
-            format_info.append(f"formato: {metadata['source']['format']}")
+            format_info.append(f"format: {metadata['source']['format']}")
             
-        logger.info(f"- Tipo: {', '.join(format_info)}")
+        logger.info(f"- Type: {', '.join(format_info)}")
         
         if metadata["source"].get("duration_seconds"):
             duration = metadata["source"]["duration_seconds"]
             duration_str = f"{int(duration//60)}m {int(duration%60)}s"
-            logger.info(f"- Duración: {duration_str}")
+            logger.info(f"- Duration: {duration_str}")
             
         if metadata["source"].get("sampling_rate"):
-            logger.info(f"- Muestras: {metadata['source'].get('numpy_array', {}).shape[0] if 'numpy_array' in metadata['source'] else 'N/A'} a {metadata['source']['sampling_rate']}Hz")
+            logger.info(f"- Samples: {metadata['source'].get('numpy_array', {}).shape[0] if 'numpy_array' in metadata['source'] else 'N/A'} at {metadata['source']['sampling_rate']}Hz")
     
-    # Guardar el JSON
+    # Save the JSON
     with open(json_output_path, "w", encoding="utf8") as fp:
         json.dump(result, fp, ensure_ascii=False, indent=2)
     
-    # Si el formato solicitado no es JSON, convertir
+    # If the requested format is not JSON, convert
     if config.output_format != "json":
         try:
             output_format = OutputFormat(config.output_format)
@@ -352,48 +352,48 @@ def build_and_save_result(
                 speaker_names=config.speaker_names
             )
             
-            # No eliminar el archivo JSON
-            logger.info(f"[green]¡Voila!✨[/] Ambos archivos guardados:")
+            # Don't delete the JSON file
+            logger.info(f"[green]Voila!✨[/] Both files saved:")
             logger.info(f"- JSON: {format_path(str(json_output_path))}")
             logger.info(f"- {config.output_format.upper()}:  {format_path(str(config.transcript_path))}")
         except Exception as e:
-            logger.error(f"[red]Error al convertir formato[/]: {str(e)}")
-            logger.info(f"Se mantiene el resultado en formato JSON: {format_path(str(json_output_path))}")
+            logger.error(f"[red]Error converting format[/]: {str(e)}")
+            logger.info(f"Keeping result in JSON format: {format_path(str(json_output_path))}")
     else:
-        logger.info(f"[green]¡Voila!✨[/] Archivo guardado en: {format_path(str(json_output_path))}")
+        logger.info(f"[green]Voila!✨[/] File saved to: {format_path(str(json_output_path))}")
     
     return result
 
 @log_time
 def main() -> FinalResult:
     """
-    Función principal que coordina todo el proceso.
+    Main function that coordinates the entire process.
     
     Returns:
-        FinalResult: Resultado final del proceso
+        FinalResult: Final result of the process
     """
     try:
-        # 1. Procesar argumentos
+        # 1. Process arguments
         config: TranscriptionConfig = parse_arguments()
         
-        # 2. Procesar audio
+        # 2. Process audio
         audio_data = process_audio(config.file_name)
         
-        # 3. Transcribir audio
+        # 3. Transcribe audio
         transcript = transcribe_audio(config, audio_data)
         
-        # 4. Diarizar audio (opcional)
+        # 4. Diarize audio (optional)
         speakers_transcript = []
         if config.diarize:
             speakers_transcript = diarize_audio(config, audio_data, transcript)
         
-        # 5. Construir y guardar resultado
+        # 5. Build and save result
         result = build_and_save_result(config, transcript, speakers_transcript, audio_data)
         
         return result
     except Exception as e:
-        logger.error(f"[red]Error durante la ejecución:[/] {str(e)}")
-        logger.debug("Detalles del error:", exc_info=True)
+        logger.error(f"[red]Error during execution:[/] {str(e)}")
+        logger.debug("Error details:", exc_info=True)
         sys.exit(1)
 
 if __name__ == "__main__":

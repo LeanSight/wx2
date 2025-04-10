@@ -1,6 +1,6 @@
 """
-Módulo para convertir transcripciones a diferentes formatos.
-Versión optimizada para eliminar duplicación de código.
+Module for converting transcriptions to different formats.
+Optimized version to eliminate code duplication.
 """
 import json
 import os
@@ -11,29 +11,29 @@ from typing import Dict, List, Optional, Union, Any, Callable, Tuple
 from helpers import logger, format_path
 
 class OutputFormat(Enum):
-    """Formatos de salida soportados para transcripciones."""
+    """Supported output formats for transcriptions."""
     JSON = "json"
     SRT = "srt"
     VTT = "vtt"
     TXT = "txt"
 
 def output_format_type(value: str) -> OutputFormat:
-    """Convertir string a enum OutputFormat."""
+    """Convert string to OutputFormat enum."""
     try:
         return OutputFormat(value.lower())
     except ValueError:
-        raise ValueError(f"Formato no soportado: {value}")
+        raise ValueError(f"Unsupported format: {value}")
 
 def format_timestamp(seconds: float, format_type: str = "srt") -> str:
     """
-    Formatea segundos a formato de timestamp.
+    Format seconds to timestamp format.
     
     Args:
-        seconds: Tiempo en segundos
-        format_type: Tipo de formato ("srt" o "vtt")
+        seconds: Time in seconds
+        format_type: Format type ("srt" or "vtt")
         
     Returns:
-        str: Timestamp formateado
+        str: Formatted timestamp
     """
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
@@ -42,19 +42,19 @@ def format_timestamp(seconds: float, format_type: str = "srt") -> str:
     
     if format_type == "vtt":
         return f"{hours:02}:{minutes:02}:{secs:02}.{millisecs:03}"
-    else:  # srt por defecto
+    else:  # srt default
         return f"{hours:02}:{minutes:02}:{secs:02},{millisecs:03}"
 
 def get_speaker_display(segment: Dict[str, Any], speaker_names: Optional[Dict[str, str]]) -> Optional[str]:
     """
-    Obtiene el nombre de visualización del hablante.
+    Gets the display name of the speaker.
     
     Args:
-        segment: Segmento de transcripción
-        speaker_names: Mapeo de ID de hablante a nombre personalizado
+        segment: Transcription segment
+        speaker_names: Mapping of speaker ID to custom name
         
     Returns:
-        Optional[str]: Nombre de visualización del hablante o None si no hay información
+        Optional[str]: Speaker display name or None if no information
     """
     if 'speaker' not in segment:
         return None
@@ -66,15 +66,15 @@ def get_speaker_display(segment: Dict[str, Any], speaker_names: Optional[Dict[st
 
 def get_segments_from_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Extrae los segmentos de la transcripción.
+    Extracts segments from transcription data.
     
     Args:
-        data: Datos de transcripción
+        data: Transcription data
         
     Returns:
-        List[Dict[str, Any]]: Lista de segmentos
+        List[Dict[str, Any]]: List of segments
     """
-    # Usar 'speakers' si está disponible, de lo contrario 'chunks'
+    # Use 'speakers' if available, otherwise 'chunks'
     speakers = data.get('speakers', [])
     return speakers if speakers else data.get('chunks', [])
 
@@ -84,40 +84,40 @@ def format_subtitle_content(
     format_type: str
 ) -> str:
     """
-    Formatea una lista de segmentos en formato de subtítulos.
+    Formats a list of segments in subtitle format.
     
     Args:
-        segments: Lista de segmentos de transcripción
-        speaker_names: Mapeo de ID de hablante a nombre personalizado
-        format_type: Tipo de formato ("srt" o "vtt")
+        segments: List of transcription segments
+        speaker_names: Mapping of speaker ID to custom name
+        format_type: Format type ("srt" or "vtt")
         
     Returns:
-        str: Contenido formateado
+        str: Formatted content
     """
     result = []
-    # Añadir encabezado VTT si es necesario
+    # Add VTT header if needed
     if format_type == "vtt":
         result.append("WEBVTT\n")
     
     index = 1
     
     for segment in segments:
-        # Obtener timestamps del segmento
+        # Get timestamps from segment
         start_time, end_time = segment['timestamp']
         if start_time is None or end_time is None:
             continue
             
-        # Formatear texto con nombre del hablante si está disponible
+        # Format text with speaker name if available
         text = segment['text'].strip()
         speaker_display = get_speaker_display(segment, speaker_names)
         if speaker_display:
             text = f"{speaker_display}: {text}"
         
-        # Formatear timestamps
+        # Format timestamps
         start_timestamp = format_timestamp(start_time, format_type)
         end_timestamp = format_timestamp(end_time, format_type)
         
-        # Añadir entrada según formato
+        # Add entry according to format
         if format_type == "vtt":
             result.append(f"\n{start_timestamp} --> {end_timestamp}\n{text}")
         else:  # srt
@@ -127,20 +127,20 @@ def format_subtitle_content(
     return "\n".join(result)
 
 def convert_to_srt(data: Dict[str, Any], speaker_names: Optional[Dict[str, str]] = None) -> str:
-    """Convertir datos de transcripción a formato SRT."""
+    """Convert transcription data to SRT format."""
     segments = get_segments_from_data(data)
     return format_subtitle_content(segments, speaker_names, "srt")
 
 def convert_to_vtt(data: Dict[str, Any], speaker_names: Optional[Dict[str, str]] = None) -> str:
-    """Convertir datos de transcripción a formato VTT."""
+    """Convert transcription data to VTT format."""
     segments = get_segments_from_data(data)
     return format_subtitle_content(segments, speaker_names, "vtt")
 
 def convert_to_txt(data: Dict[str, Any], speaker_names: Optional[Dict[str, str]] = None) -> str:
-    """Convertir datos de transcripción a formato de texto plano."""
+    """Convert transcription data to plain text format."""
     result = []
     
-    # Determinar qué lista usar - con hablantes si está disponible, de lo contrario usar texto completo
+    # Determine which list to use - with speakers if available, otherwise use full text
     if 'speakers' in data and data['speakers']:
         segments = data['speakers']
         
@@ -149,7 +149,7 @@ def convert_to_txt(data: Dict[str, Any], speaker_names: Optional[Dict[str, str]]
         
         for segment in segments:
             speaker_id = segment['speaker']
-            # Si cambia el hablante, agregar el texto acumulado y reiniciar
+            # If speaker changes, add accumulated text and reset
             if current_speaker is not None and current_speaker != speaker_id:
                 speaker_display = get_speaker_display({'speaker': current_speaker}, speaker_names)
                 result.append(f"{speaker_display}: {' '.join(current_text)}")
@@ -158,19 +158,19 @@ def convert_to_txt(data: Dict[str, Any], speaker_names: Optional[Dict[str, str]]
             current_speaker = speaker_id
             current_text.append(segment['text'].strip())
         
-        # Agregar el último segmento
+        # Add the last segment
         if current_speaker and current_text:
             speaker_display = get_speaker_display({'speaker': current_speaker}, speaker_names)
             result.append(f"{speaker_display}: {' '.join(current_text)}")
     
-    # Si no hay información de hablantes o está vacía, usar el texto completo
+    # If no speaker information or it's empty, use the full text
     else:
         result = [data['text']]
     
     return "\n\n".join(result)
 
 def create_speaker_map(speaker_names_str: Optional[str] = None) -> Dict[str, str]:
-    """Crear un mapeo de IDs de hablantes a nombres personalizados."""
+    """Create a mapping of speaker IDs to custom names."""
     if not speaker_names_str:
         return {}
         
@@ -184,46 +184,46 @@ def convert_output(
     speaker_names: Optional[str] = None
 ) -> Path:
     """
-    Convertir un archivo de transcripción JSON al formato especificado.
+    Convert a JSON transcription file to the specified format.
     
     Args:
-        input_path: Ruta al archivo JSON de entrada
-        output_format: Formato de salida deseado
-        output_dir: Directorio para guardar el archivo de salida (opcional)
-        speaker_names: Lista de nombres de hablantes separados por comas (opcional)
+        input_path: Path to the input JSON file
+        output_format: Desired output format
+        output_dir: Directory to save the output file (optional)
+        speaker_names: Comma-separated list of speaker names (optional)
     
     Returns:
-        Path: Ruta al archivo de salida generado
+        Path: Path to the generated output file
     """
-    # Manejar rutas
+    # Handle paths
     input_path = Path(input_path)
     if output_dir is None:
         output_dir = input_path.parent
     else:
         output_dir = Path(output_dir)
         
-    # Crear mapa de hablantes si se proporciona
+    # Create speaker map if provided
     speaker_map = create_speaker_map(speaker_names)
     if speaker_map:
-        logger.info(f"Usando mapeo de hablantes: {speaker_map}")
+        logger.info(f"Using speaker mapping: {speaker_map}")
     
-    # Cargar datos JSON
+    # Load JSON data
     with open(input_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    # Determinar el nombre base y extensión del archivo de salida
+    # Determine base name and extension of output file
     stem = input_path.stem
     output_ext = f".{output_format.value}"
     output_path = output_dir / f"{stem}{output_ext}"
     
-    # Si el formato es JSON, simplemente copiar el archivo
+    # If the format is JSON, simply copy the file
     if output_format == OutputFormat.JSON:
         if str(output_path) != str(input_path):
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         return output_path
     
-    # Convertir según el formato solicitado
+    # Convert according to requested format
     converter_map = {
         OutputFormat.SRT: convert_to_srt,
         OutputFormat.VTT: convert_to_vtt,
@@ -232,14 +232,14 @@ def convert_output(
     
     converter = converter_map.get(output_format)
     if not converter:
-        raise ValueError(f"No hay conversor implementado para el formato {output_format}")
+        raise ValueError(f"No converter implemented for format {output_format}")
     
-    # Realizar la conversión
+    # Perform the conversion
     output_content = converter(data, speaker_map)
     
-    # Guardar el resultado
+    # Save the result
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(output_content)
     
-    logger.info(f"Archivo convertido y guardado en: {format_path(str(output_path))}")
+    logger.info(f"File converted and saved to: {format_path(str(output_path))}")
     return output_path
