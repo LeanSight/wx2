@@ -14,34 +14,76 @@ WX2 is a functional Python tool for transcribing audio and video, with speaker i
 
 ## 🔧 Prerequisites
 
-- Python 3.10 (tested version)
-- FFmpeg (for audio processing)
-- CUDA-compatible graphics card (optional, for better performance)
+- **Python 3.10**: Ensure that Python 3.10 is installed on your system. You can verify your Python version with:
+
+  ```bash
+  python --version
+  ```
+
+  If Python 3.10 is not installed, download it from the [official Python website](https://www.python.org/downloads/release/python-3100/).
+
+- **FFmpeg**: Required for audio processing. Install it via your system's package manager or download it from the [FFmpeg website](https://ffmpeg.org/download.html).
+
+- **CUDA-compatible GPU** (optional): For enhanced performance using GPU acceleration. Ensure that the appropriate CUDA drivers are installed on your system.
 
 ## ⚙️ Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/LeanSight/wx2.git
-cd wx2
-```
+WX2 utilizes `uv`, a modern Python package manager, to streamline environment and dependency management. This approach ensures consistency across different setups and simplifies the installation process.
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+1. **Clone the Repository**:
 
-3. For CUDA support (recommended for GPU acceleration):
-   - Follow this tutorial: [Installing CUDA for PyTorch Easily Explained](https://medium.com/@fernandopalominocobo/installing-cuda-for-pytorch-easily-explained-windows-users-4d3b7db5f2e0)
-   - Install PyTorch with CUDA:
+   Begin by cloning the WX2 repository and navigating into its directory:
+
    ```bash
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+   git clone https://github.com/LeanSight/wx2.git
+   cd wx2
    ```
 
-4. To use diarization, you'll need a Hugging Face token:
-   - Register at [Hugging Face](https://huggingface.co/)
-   - Get an access token
-   - Accept the terms of the [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) model
+2. **Install `uv`**:
+
+   Install `uv` to manage the project's environment and dependencies efficiently. You can install `uv` using `pip`:
+
+   ```bash
+   pip install uv
+   ```
+
+   Alternatively, for a system-wide installation, you can use the provided installation script:
+
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+3. **Set Up the Project Environment**:
+
+   With `uv` installed, synchronize the project's dependencies and set up the environment by running:
+
+   ```bash
+   uv sync
+   ```
+
+   This command performs several actions:
+
+   - **Creates a Virtual Environment**: Establishes an isolated environment for the project within the `.venv` directory.
+
+   - **Installs Dependencies**: Installs all required packages as specified in the `pyproject.toml` file.
+
+   - **Handles Optional Dependencies**: By default, `uv sync` installs the dependencies for CUDA (GPU support). If you prefer to install the CPU-only versions of the dependencies, use:
+
+     ```bash
+     uv sync --group cpu --no-group cuda
+     ```
+
+   This flexibility allows you to tailor the installation to your system's capabilities and your performance requirements.
+
+4. **Set Up Diarization Models** (Optional):
+
+   If you plan to use the speaker diarization feature:
+
+   - **Obtain a Hugging Face Token**: Register at [Hugging Face](https://huggingface.co/) and acquire an access token.
+
+   - **Accept Model Terms**: Agree to the terms for the [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) model.
+
+   These steps are necessary to access and utilize the diarization models within WX2.
 
 ## 🚀 Basic Usage
 

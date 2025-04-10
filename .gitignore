@@ -1,0 +1,15 @@
+# Bytecode compilado
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Directorios de caché de Python
+**/__pycache__/
+**/*.py[cod]
+
+# Distribución / empaquetado
+*.egg-info/
+*.egg
+dist/
+build/
+*.so

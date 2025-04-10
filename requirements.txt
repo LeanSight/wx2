@@ -1,7 +1,0 @@
-transformers
-numpy
-torch
-torchaudio
-pyannote.audio
-rich
-requests
