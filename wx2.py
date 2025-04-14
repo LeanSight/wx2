@@ -27,6 +27,9 @@ warnings.filterwarnings("ignore", module="pyannote.audio.models.blocks.pooling")
 # Filter SpeechBrain logs (they use the logging module)
 logging.getLogger("speechbrain.utils.quirks").setLevel(logging.WARNING)
 
+# Filter Torio ffmpeg import warnings
+logging.getLogger('torio._extension.utils').setLevel(logging.ERROR)
+
 # Local imports
 from data_types import (
     TranscriptionConfig, TaskType, FinalResult, 

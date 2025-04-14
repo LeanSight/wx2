@@ -3,12 +3,10 @@ name = "wx2"
 version = "1.0.0"
 description = "WX2 - Fast Audio Transcription and Diarization System with Whisper and Pyannote"
 readme = "README.md"
-requires-python = "==3.10"
+requires-python = "==3.10.*"
 dependencies = [
     "requests",
     "numpy",
-    "torch",  # gestionado por grupos cuda/cpu
-    "torchaudio",
     "transformers",
     "pyannote.audio",
     "rich",
