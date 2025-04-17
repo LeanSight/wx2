@@ -23,13 +23,39 @@ logging.basicConfig(
             console=console,
             rich_tracebacks=True,
             show_time=True,
-            show_path=False,
+            show_path=True,
             enable_link_path=False,
             markup=True  # Enable Rich markup interpretation
         )
     ]
 )
 logger = logging.getLogger("transcriber")
+
+# Nueva función para establecer nivel de logging dinámicamente
+def set_log_level(level: str) -> None:
+    """
+    Establece el nivel de logging para la aplicación.
+    
+    Args:
+        level: Nivel de logging ('debug', 'info', 'warning', 'error', 'critical')
+    """
+    # Mapeo de nombres de nivel a constantes de logging
+    levels = {
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error': logging.ERROR,
+        'critical': logging.CRITICAL
+    }
+    
+    # Obtener el nivel numérico
+    numeric_level = levels.get(level.lower(), logging.INFO)
+    
+    # Configurar tanto el logger raíz como el logger específico
+    logging.getLogger().setLevel(numeric_level)
+    logger.setLevel(numeric_level)
+    
+    logger.debug(f"Log level set to: {level.upper()}")
 
 # Utility for dynamic import
 def import_module(module_name: str) -> Any:

@@ -13,7 +13,7 @@ import logging
 import warnings
 from pathlib import Path
 from datetime import datetime
-from typing import Any, List, Union, cast
+from typing import Any, List, Union, Optional, Tuple, cast
 
 # Environment configuration
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
@@ -35,19 +35,19 @@ from data_types import (
     TranscriptionConfig, TaskType, FinalResult, 
     TranscriptOutput, DiarizedChunk, ProcessingMetadata
 )
-from helpers import log_time, logger, format_path
+from helpers import log_time, logger, format_path, set_log_level
 from audio import process_audio
 from transcription import transcribe_audio
 from diarization import diarize_audio
 from formatters import OutputFormat, convert_output, output_format_type
 
 @log_time
-def parse_arguments() -> TranscriptionConfig:
+def parse_arguments() -> Tuple[TranscriptionConfig, str]:
     """
     Parse command line arguments and return typed configuration.
     
     Returns:
-        TranscriptionConfig: Immutable configuration with validated values
+        Tuple[TranscriptionConfig, str]: Configuración inmutable con valores validados y nivel de logging
     """
     parser = argparse.ArgumentParser(
         description="Audio transcription and diarization system with functional approach.",
@@ -65,6 +65,9 @@ Usage examples:
 
   # Transcription in English with optimized attention
   transcribe.py interview.mp3 -l en --attn-type flash
+  
+  # Transcription with debug logs enabled
+  transcribe.py audio.mp3 --debug debug
         """
     )
     
@@ -73,6 +76,7 @@ Usage examples:
     transc_group = parser.add_argument_group('transcription options')
     perf_group = parser.add_argument_group('performance options')
     diar_group = parser.add_argument_group('diarization options')
+    debug_group = parser.add_argument_group('debug options')
     
     # Positional argument for input file
     parser.add_argument(
@@ -153,6 +157,15 @@ Usage examples:
         help="Attention implementation type (default: sdpa)"
     )
     
+    # Debug options
+    debug_group.add_argument(
+        "-dbg", "--debug",
+        type=str,
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="info",
+        help="Set logging level (default: info)"
+    )
+    
     # Diarization options
     diar_group.add_argument(
         "--diarize",
@@ -212,6 +225,9 @@ Usage examples:
     if args.diarize and args.hf_token == "no_token":
         parser.error("The --diarize option requires a HuggingFace token (--token)")
     
+    # Extract logging level
+    log_level = args.debug
+    
     # NEW: Calculate default output path if not specified
     if args.transcript_path is None:
         # Get the full path of the input file
@@ -243,7 +259,7 @@ Usage examples:
             args.transcript_path = str(output_path.parent / f"{stem}.{args.output_format}")
     
     # Create typed and validated configuration
-    return TranscriptionConfig(
+    config = TranscriptionConfig(
         file_name=args.file_name,
         device_id=args.device_id,
         transcript_path=args.transcript_path,
@@ -262,59 +278,75 @@ Usage examples:
         min_speakers=args.min_speakers,
         max_speakers=args.max_speakers
     )
+    
+    return config, log_level
 
 @log_time
-def build_and_save_result(
-    config: TranscriptionConfig, 
-    transcript: TranscriptOutput, 
-    speakers_transcript: List[DiarizedChunk],
-    audio_data: Any
-) -> FinalResult:
+def build_and_save_transcript(
+    config: TranscriptionConfig,
+    transcript: TranscriptOutput,
+    audio_data: Any,
+    *,
+    speakers_transcript: List[DiarizedChunk] = [],
+    is_intermediate: bool = False
+) -> Union[Path, FinalResult]:
     """
-    Builds and saves the final result in JSON format and converts it to the requested format.
+    Construye y guarda un resultado de transcripción, ya sea intermedio o final.
     
     Args:
-        config: Transcription configuration
-        transcript: Transcription results
-        speakers_transcript: Transcription with speaker info
-        audio_data: Processed audio data
+        config: Configuración de transcripción
+        transcript: Resultados de transcripción
+        audio_data: Datos de audio procesados
+        speakers_transcript: Transcripción con info de hablantes (solo para resultado final)
+        is_intermediate: Indica si es un resultado intermedio
         
     Returns:
-        FinalResult: Final result with all information
+        Union[Path, FinalResult]: Ruta al archivo (si es intermedio) o resultado completo (si es final)
     """
-    # Build final result
-    logger.info("Building final result")
+    # Determinar el tipo de resultado para los mensajes
+    result_type = "intermediate" if is_intermediate else "final"
+    logger.info(f"Building {result_type} result")
     
-    # Create processing metadata
+    # Crear metadatos de procesamiento
     processing_meta: ProcessingMetadata = {
         "transcription_model": config.model_name,
         "language": config.language,
         "device": "mps" if config.device_id == "mps" else "cpu" if config.device_id == "cpu" else f"cuda:{config.device_id}",
         "timestamp": datetime.now().isoformat(),
-        "diarization": config.diarize,
-        "diarization_model": config.diarization_model if config.diarize else None
+        "diarization": config.diarize and not is_intermediate,
+        "diarization_model": config.diarization_model if config.diarize and not is_intermediate else None
     }
     
-    # Include complete metadata
+    # Incluir metadatos completos
     metadata = {
         "source": audio_data.get("source_info", {}),
         "processing": processing_meta
     }
     
-    result: FinalResult = {
-        "speakers": speakers_transcript,
+    # Construir el resultado
+    result = {
         "chunks": transcript["chunks"],
         "text": transcript["text"],
         "metadata": metadata
     }
     
-    # Save result in JSON first (always needed for conversion)
-    json_output_path = Path(str(config.transcript_path).replace(f".{config.output_format}", ".json")) \
-        if config.output_format != "json" else Path(config.transcript_path)
+    # Añadir información de hablantes si está disponible y no es intermedio
+    if speakers_transcript and not is_intermediate:
+        result["speakers"] = speakers_transcript
     
-    logger.info(f"Saving JSON result to: {format_path(str(json_output_path))}")
+    # Determinar ruta de salida
+    base_path = Path(str(config.transcript_path))
+    if is_intermediate:
+        # Modificar nombre para resultado intermedio
+        json_output_path = base_path.parent / f"{base_path.stem}-intermediate.json"
+    else:
+        # Usar nombre estándar para resultado final
+        json_output_path = Path(str(config.transcript_path).replace(f".{config.output_format}", ".json")) \
+            if config.output_format != "json" else Path(config.transcript_path)
     
-    # Show source information if available
+    logger.info(f"Saving {result_type} JSON result to: {format_path(str(json_output_path))}")
+    
+    # Mostrar información de origen si está disponible
     if "source" in metadata and metadata["source"].get("path"):
         logger.info("Source information included in metadata:")
         logger.info(f"- File: {format_path(metadata['source']['path'])}")
@@ -340,32 +372,48 @@ def build_and_save_result(
         if metadata["source"].get("sampling_rate"):
             logger.info(f"- Samples: {metadata['source'].get('numpy_array', {}).shape[0] if 'numpy_array' in metadata['source'] else 'N/A'} at {metadata['source']['sampling_rate']}Hz")
     
-    # Save the JSON
+    # Guardar el JSON
     with open(json_output_path, "w", encoding="utf8") as fp:
         json.dump(result, fp, ensure_ascii=False, indent=2)
     
-    # If the requested format is not JSON, convert
+    # Si el formato solicitado no es JSON, convertir
     if config.output_format != "json":
         try:
             output_format = OutputFormat(config.output_format)
-            convert_output(
+            # Usar nombres de hablantes solo para resultado final
+            speaker_names = config.speaker_names if not is_intermediate else None
+            
+            converted_path = convert_output(
                 input_path=json_output_path,
                 output_format=output_format,
                 output_dir=json_output_path.parent,
-                speaker_names=config.speaker_names
+                speaker_names=speaker_names
             )
             
-            # Don't delete the JSON file
-            logger.info(f"[green]Voila!✨[/] Both files saved:")
-            logger.info(f"- JSON: {format_path(str(json_output_path))}")
-            logger.info(f"- {config.output_format.upper()}:  {format_path(str(config.transcript_path))}")
+            # No eliminar el archivo JSON
+            if is_intermediate:
+                logger.info(f"{result_type.capitalize()} files saved:")
+                logger.info(f"- JSON: {format_path(str(json_output_path))}")
+                logger.info(f"- {config.output_format.upper()}: {format_path(str(converted_path))}")
+            else:
+                logger.info(f"[green]Voila!✨[/] Both files saved:")
+                logger.info(f"- JSON: {format_path(str(json_output_path))}")
+                logger.info(f"- {config.output_format.upper()}:  {format_path(str(converted_path))}")
         except Exception as e:
             logger.error(f"[red]Error converting format[/]: {str(e)}")
             logger.info(f"Keeping result in JSON format: {format_path(str(json_output_path))}")
     else:
-        logger.info(f"[green]Voila!✨[/] File saved to: {format_path(str(json_output_path))}")
+        if is_intermediate:
+            logger.info(f"{result_type.capitalize()} file saved to: {format_path(str(json_output_path))}")
+        else:
+            logger.info(f"[green]Voila!✨[/] File saved to: {format_path(str(json_output_path))}")
     
-    return result
+    # Para resultado final, devolver el objeto completo como FinalResult
+    if not is_intermediate:
+        return cast(FinalResult, result)
+    
+    # Para intermedio, solo devolver la ruta
+    return json_output_path
 
 @log_time
 def main() -> FinalResult:
@@ -377,7 +425,10 @@ def main() -> FinalResult:
     """
     try:
         # 1. Process arguments
-        config: TranscriptionConfig = parse_arguments()
+        config, log_level = parse_arguments()
+        
+        # 1.5 Configure logging level
+        set_log_level(log_level)
         
         # 2. Process audio
         audio_data = process_audio(config.file_name)
@@ -385,13 +436,27 @@ def main() -> FinalResult:
         # 3. Transcribe audio
         transcript = transcribe_audio(config, audio_data)
         
+        # 3.5. Guardar transcripción intermedia
+        build_and_save_transcript(
+            config=config,
+            transcript=transcript,
+            audio_data=audio_data,
+            is_intermediate=True
+        )
+        
         # 4. Diarize audio (optional)
         speakers_transcript = []
         if config.diarize:
             speakers_transcript = diarize_audio(config, audio_data, transcript)
         
-        # 5. Build and save result
-        result = build_and_save_result(config, transcript, speakers_transcript, audio_data)
+        # 5. Build and save final result
+        result = build_and_save_transcript(
+            config=config,
+            transcript=transcript,
+            audio_data=audio_data,
+            speakers_transcript=speakers_transcript,
+            is_intermediate=False
+        )
         
         return result
     except Exception as e:
