@@ -30,6 +30,9 @@ logging.getLogger("speechbrain.utils.quirks").setLevel(logging.WARNING)
 # Filter Torio ffmpeg import warnings
 logging.getLogger('torio._extension.utils').setLevel(logging.ERROR)
 
+# Filter checkpoint.py debug 
+logging.getLogger("checkpoint").setLevel(logging.DEBUG)
+
 # Local imports
 from data_types import (
     TranscriptionConfig, TaskType, FinalResult, 
